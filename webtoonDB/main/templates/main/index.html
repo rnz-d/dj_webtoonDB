@@ -1,0 +1,17 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Index{% endblock title %}
+
+{% block content %}
+    {% for webtoon in webtoon_list %}
+        <li>TITLE: {{ webtoon.title }} | SITE: {{ webtoon.site }} | URL: {{ webtoon.url }} | AVAILABLE: {{ webtoon.available_ch }} | FINISHED: {{ webtoon.finished_ch }}</li>
+    {% endfor %}
+    <form method='post' action="{% url 'main:index' %}">
+    {% csrf_token %}
+        TITLE: <input type='text', name='title'>
+        SITE: <input type='text', name='site'>
+        FINISHED: <input type='number', step='any' name='finished_ch'>
+        <button type='submit', name='newWebtoon', value='newWebtoon'>Add Item</button>
+    </form>
+    <button onclick="location.href='{% url 'main:scrape' %}'">scrape</button>
+{% endblock content %}
