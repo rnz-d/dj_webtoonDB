@@ -1,5 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from .models import Webtoon
+from .forms import WebtoonForm
 
 from bs4 import BeautifulSoup
 import requests
@@ -8,16 +9,20 @@ import requests
 
 
 def index(response):
+
     webtoon_list = Webtoon.objects.all()
+
     if response.method == "POST":
         title = response.POST.get("title")
         site = response.POST.get("site")
         finished_ch = response.POST.get("finished_ch")
+
         if Webtoon.objects.filter(title=title).exists():
             W = Webtoon.objects.get(title=title)
             W.site = site if site else "MR"
             W.finished_ch = finished_ch if finished_ch else 0
             W.save()
+
         else:
             W = Webtoon(
                 title=title,
@@ -25,10 +30,60 @@ def index(response):
                 finished_ch=finished_ch if finished_ch else 0,
             )
             W.save()
-    return render(response, "main/index.html", {"webtoon_list": webtoon_list})
+
+    context = {"webtoon_list": webtoon_list}
+    return render(response, "main/index.html", context)
+
+
+def addWebtoon(response):
+
+    form = WebtoonForm()
+
+    if response.method == "POST":
+        form = WebtoonForm(response.POST)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect("/")
+
+    context = {"form": form}
+    return render(response, "main/webtoon-form.html", context)
+
+
+def updateWebtoon(response, id):
+
+    webtoon = Webtoon.objects.get(id=id)
+    form = WebtoonForm(instance=webtoon)
+
+    if response.method == "POST":
+        form = WebtoonForm(response.POST, instance=webtoon)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect("/")
+
+    context = {"form": form}
+    return render(response, "main/webtoon-form.html", context)
+
+
+def deleteWebtoon(response, id):
+
+    webtoon = Webtoon.objects.get(id=id)
+    title = webtoon.title
+
+    if response.method == "POST":
+        webtoon.delete()
+
+        return redirect("/")
+
+    context = {"webtoon": title}
+    return render(response, "main/delete.html", context)
 
 
 def scrape(response):
+
     webtoon_list = Webtoon.objects.all()
 
     AR_PAGES = 3
@@ -40,6 +95,7 @@ def scrape(response):
     AR_URL_CLASS = "series"
 
     ar_pages = AR_PAGES
+
     for page in range(1, ar_pages):
         ar_html_text = requests.get(f"https://asura.gg/page/{page}/").text
         ar_soup = BeautifulSoup(ar_html_text, "lxml")
@@ -48,8 +104,10 @@ def scrape(response):
 
         for ar_webtoon in ar_webtoons:
             title = ar_webtoon.find(AR_TITLE_TYPE).text.strip()
+
             if Webtoon.objects.filter(title=title).exists():
                 W = Webtoon.objects.get(title=title)
+
                 if W.site == "AR":
                     url = ar_webtoon.find("a", class_=AR_URL_CLASS)["href"].strip()
                     list = ar_webtoon.find("li")
@@ -70,6 +128,7 @@ def scrape(response):
     MR_CHAPTER_CLASS = "chapter-title text1row"
 
     mr_pages = MR_PAGES
+
     for page in range(1, mr_pages):
         mr_html_text = requests.get(
             f"https://www.mreader.co/jumbo/manga/?results={page}"
@@ -80,8 +139,10 @@ def scrape(response):
 
         for mr_webtoon in mr_webtoons:
             title = mr_webtoon.find(MR_TITLE_TYPE, class_=MR_TITLE_CLASS).text.strip()
+
             if Webtoon.objects.filter(title=title).exists():
                 W = Webtoon.objects.get(title=title)
+
                 if W.site == "MR":
                     url = mr_webtoon.find("a", class_=MR_URL_CLASS)["href"].strip()
                     chapter = (
@@ -89,14 +150,19 @@ def scrape(response):
                         .text.strip()
                         .partition("Chapter ")[2]
                     )
+
                     if "eng" in chapter:
                         chapter_parts = chapter.split("-")
+
                         if chapter_parts[1].isdigit():
                             chapter = f"{chapter_parts[0]}.{chapter_parts[1]}"
+
                         else:
                             chapter = chapter_parts[0]
+
                         W.url = url
                         W.available_ch = float(chapter)
                         W.save()
 
-    return render(response, "main/index.html", {"webtoon_list": webtoon_list})
+    context = {"webtoon_list": webtoon_list}
+    return render(response, "main/index.html", context)

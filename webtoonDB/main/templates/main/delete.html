@@ -1,0 +1,16 @@
+{% extends "main/base.html" %}
+
+{% block title %}Delete{% endblock title %}
+
+{% block content %}
+
+    Delete {{ webtoon }}?
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <a href="{% url 'main:index' %}">Cancel</a>
+        <input type="submit" name="Confirm">
+    </form>
+
+{% endblock content %}
